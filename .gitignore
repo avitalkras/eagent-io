@@ -1,0 +1,34 @@
+# ── macOS ──────────────────────────────────────────────
+.DS_Store
+
+# ── Secrets / environment ──────────────────────────────
+.env
+.env.*
+*.pem
+*.key
+secrets/
+
+# ── Python ─────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ── IDE / editor ───────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+
+# ── Data / build artifacts ─────────────────────────────
+*.log
+data/raw/
+data/tmp/
+*.parquet
+*.csv
+
+# ── Power BI (large binary; keep out of git) ───────────
+*.pbix
