@@ -48,6 +48,7 @@ Job interview scraping automation/
 │   ├── 01-database-modeling-star-schema.md
 │   ├── 02-ingestion-and-enrichment.md
 │   ├── 03-ats-scoring-and-resume-generation.md
+│   ├── 05-power-bi-data-model.md
 │   └── git-and-github-basics.md
 ├── sql/                        ← DB migrations, applied in order
 │   ├── 01_schema.sql            ← Phase 1: star schema DDL
@@ -73,6 +74,8 @@ Job interview scraping automation/
 │   ├── run_ingestion.py        ← Phase 2: scrape → load → enrich, wired end-to-end
 │   ├── run_ats_pipeline.py     ← Phase 3: score → tailor → render → save, wired end-to-end
 │   └── export_ats_schema.py    ← regenerates the JSON Schema artifact
+├── powerbi/
+│   └── eagent_measures.dax     ← Phase 5: copy-paste DAX (measures + ATS Tier)
 └── tests/                      ← unit tests (mocked) + DB-gated integration tests
 ```
 
@@ -86,7 +89,7 @@ Job interview scraping automation/
 | **2** | Python scraper + idempotent load + recruiter enrichment | ✅ Done |
 | **3** | LLM ATS scoring + resume tailoring | ✅ Done |
 | 4 | Human-in-the-loop approval workflow | ⬜ Planned |
-| 5 | Power BI dashboard | ⬜ Planned |
+| **5** | Power BI data model + DAX (built ahead of Phase 4) | ✅ Done |
 
 See [`docs/00-project-roadmap.md`](docs/00-project-roadmap.md) for details.
 
@@ -146,6 +149,22 @@ psql -d eagent_test -f sql/03_ats_outreach_columns.sql
 DATABASE_URL=postgresql+psycopg2://localhost:5432/eagent_test pytest -m integration
 ```
 
+### Phase 5 — Power BI data model & DAX
+
+1. Get Data → PostgreSQL database in Power BI Desktop, import `dim_companies`,
+   `dim_jobs`, `dim_recruiters`, `dim_dates`, `fact_outreach`.
+2. Build the relationships described in
+   [`docs/05-power-bi-data-model.md`](docs/05-power-bi-data-model.md) §1
+   (all single-direction, dims → fact; mark `dim_dates` as the Date Table).
+3. Create a hidden `_Measures` table and paste in every measure from
+   [`powerbi/eagent_measures.dax`](powerbi/eagent_measures.dax).
+4. Add the `ATS Tier` / `ATS Tier Sort Order` calculated columns on
+   `fact_outreach` from the same file.
+
+> This phase's DAX was authored against the schema, not executed in Power BI
+> Desktop (unavailable in this environment) — see the honesty note at the top
+> of `docs/05-power-bi-data-model.md` before trusting it blindly.
+
 ---
 
 ## 📚 Learning docs
@@ -158,5 +177,8 @@ DATABASE_URL=postgresql+psycopg2://localhost:5432/eagent_test pytest -m integrat
 - [ATS scoring & resume generation](docs/03-ats-scoring-and-resume-generation.md) —
   the core of Phase 3 (anti-hallucination guardrails, structured LLM output,
   the retry-with-feedback pattern, Typst PDF rendering).
+- [Power BI data model & DAX](docs/05-power-bi-data-model.md) — the core of
+  Phase 5 (relationship cardinality/direction, `DIVIDE`/`FILTER` patterns,
+  calculated column vs. measure, two schema gaps this design surfaced).
 - [Git & GitHub basics](docs/git-and-github-basics.md) — the workflow used to
   build this repo.

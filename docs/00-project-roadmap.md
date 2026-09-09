@@ -46,10 +46,24 @@ self-contained learning module.
   funnel.
 - **Skills:** workflow state machines, approval gates, funnel/velocity metrics.
 
-## Phase 5 — Power BI Dashboard ⬜
-- Connect Power BI to the star schema; build operational + market-intelligence
-  reports with time-intelligence (YoY/MoM) off `dim_dates`.
-- **Skills:** star-schema relationships in Power BI, DAX, data modeling for BI.
+## Phase 5 — Power BI Dashboard ✅ (data model + DAX; built ahead of Phase 4)
+- **Deliverables:** `docs/05-power-bi-data-model.md`, `powerbi/eagent_measures.dax`
+- Star-schema relationship architecture (single-direction, dims -> fact) over
+  the Phase 1 schema; production DAX for the outreach funnel (approval,
+  response, interview rates), ATS scoring, and a dynamic `ATS Tier`
+  calculated column.
+- Built directly against the Phase 1 schema contract, ahead of Phase 4's
+  application code — the funnel measures (`Pending Approvals Count`,
+  `Approval Rate %`) are ready to report on `is_approved`/`outreach_status`
+  the moment Phase 4 starts writing to them. Two schema gaps surfaced during
+  this design pass (no `dim_jobs -> dim_dates` link, no `interviewed_at`
+  timestamp) are documented for a future migration.
+- **Skills:** star-schema relationships in Power BI (cardinality,
+  cross-filter direction), DAX (`DIVIDE`/`BLANK`/`FILTER`/`SWITCH`,
+  `VAR`/`RETURN`, measure reuse), calculated column vs. measure trade-offs,
+  designing a semantic layer against a schema contract before every producer
+  of that schema exists.
+- **Docs:** [`05-power-bi-data-model.md`](05-power-bi-data-model.md)
 
 ---
 
