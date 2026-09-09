@@ -4,6 +4,7 @@
 # ── Secrets / environment ──────────────────────────────
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 secrets/
@@ -22,6 +23,9 @@ env/
 .vscode/
 .idea/
 *.swp
+
+# ── Claude Code local session state (machine-specific, not shared) ────
+.claude/
 
 # ── Data / build artifacts ─────────────────────────────
 *.log

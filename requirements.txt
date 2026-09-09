@@ -1,0 +1,10 @@
+# Runtime dependencies. Install with: pip install -r requirements.txt
+# (or, for editable dev install with tests: pip install -e ".[dev]")
+requests>=2.31
+pydantic[email]>=2.5,<3
+SQLAlchemy>=2.0,<3
+psycopg2-binary>=2.9
+python-dotenv>=1.0
+
+# Dev / test only
+pytest>=8.0
