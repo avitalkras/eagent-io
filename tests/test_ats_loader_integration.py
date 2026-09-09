@@ -25,7 +25,7 @@ from sqlalchemy import text
 from eagent.ats.loader import upsert_outreach_result
 from eagent.ats.models import ATSAnalysisResult, TailoredResume
 from eagent.config import get_engine
-from eagent.loader import dim_companies, dim_jobs
+from eagent.schema import dim_companies, dim_jobs
 
 pytestmark = pytest.mark.integration
 

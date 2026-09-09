@@ -52,13 +52,15 @@ RETURN
 
 
 Interview Rate % =
-// NOTE: relies on outreach_status = "Interview" as a point-in-time snapshot,
-// not a timestamp — see docs/05-power-bi-data-model.md #6 for the schema gap
-// this exposes (no interviewed_at column yet) and the recommended fix.
+// Filters on interviewed_at (Migration #4, sql/04_interviewed_at_column.sql),
+// not outreach_status = "Interview" — same reasoning as Sent Outreach Count
+// above: a timestamp, once set, survives the outreach later moving on to
+// "Rejected"; a status filter would silently lose it. See
+// docs/05-power-bi-data-model.md #1 for the gap this column closed.
 VAR InterviewCount =
     CALCULATE (
         COUNTROWS ( fact_outreach ),
-        fact_outreach[outreach_status] = "Interview"
+        NOT ISBLANK ( fact_outreach[interviewed_at] )
     )
 VAR SentCount =
     [Sent Outreach Count]
