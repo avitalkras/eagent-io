@@ -130,6 +130,50 @@ self-contained learning module.
   database can be a stronger SQL correctness check than a style linter.
 - **Docs:** [`07-continuous-integration.md`](07-continuous-integration.md)
 
+## Phase 7 — Going Live: Scheduled Harvest & Alerting ✅ (code + docs; infra provisioning is yours to complete)
+- **Deliverables:** `.github/workflows/daily_harvest.yml`, `scripts/score_unscored_jobs.py`,
+  `scripts/notify.py`, `docs/08-going-live-secrets-and-migrations.md`
+- A scheduled (daily, `workflow_dispatch`-triggerable) GitHub Actions workflow
+  that scrapes, idempotently loads, and scores every unscored posting
+  unattended — turning the pipeline from "something I run by hand" into an
+  actually-running system, for the first time.
+- `score_unscored_jobs.py`: batch-mode ATS scoring with real per-row error
+  isolation (one bad job never stops the batch) and fully environment-sourced
+  credentials (no required interactive CLI flags) — both genuinely new logic,
+  not just wiring, so unlike the earlier thin CLI scripts this one gets its
+  own direct test coverage.
+- `notify.py`: a Telegram digest of the day's matches above 85%, built on a
+  real, non-obvious invariant (`drafted_at::date = today` correctly means
+  "scored in today's run" *because* this script only ever scores jobs with
+  no existing `fact_outreach` row — documented explicitly since a future
+  change to re-score existing rows would silently break that assumption).
+- Chose Neon (Postgres), Supabase Storage/R2 (PDF storage — not yet wired,
+  see PR #11), and Telegram (alerting) per your explicit architecture
+  decisions; GitHub Actions cron over Airflow/Argo for the reasons compared
+  in the original roadmap discussion.
+- Surfaced a real gap rather than papering over it: nothing in this codebase
+  has ever persisted a `RecruiterEnricher` result to `dim_recruiters` —
+  `run_ingestion.py` only logs it — so every `fact_outreach` row this phase
+  writes gets `recruiter_id=NULL`. Documented in `score_unscored_jobs.py`'s
+  own docstring, not silently worked around.
+- A new *time-based* gap, not a code gap: `dim_dates` (Phase 1) only covers
+  2 years forward from whenever `sql/02_populate_dim_dates.sql` was run — a
+  non-issue for every earlier phase's one-off local demo, a real eventual
+  failure mode for a pipeline that now runs indefinitely on a timer.
+  Documented with the exact re-run command, not just flagged abstractly.
+- **What's still infrastructure, not code** — genuinely can't be finished
+  from this environment: provisioning the actual Neon project, wiring the
+  5 GitHub Secrets, and applying the 4 migrations against the real instance.
+  See `docs/08` §1–3 for the exact checklist.
+- **Skills:** designing for partial failure in a scheduled job (`if:
+  always()` step sequencing so one phase's hiccup doesn't block the next),
+  the difference between testing a thin CLI wrapper and testing a script
+  with real logic of its own, an ephemeral-runner storage gotcha (why
+  generated files need a build-artifact stopgap until real object storage
+  lands), reading a query's correctness as depending on an upstream
+  invariant and documenting that dependency explicitly.
+- **Docs:** [`08-going-live-secrets-and-migrations.md`](08-going-live-secrets-and-migrations.md)
+
 ---
 
 ## Cross-cutting (learned throughout)

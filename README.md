@@ -42,7 +42,9 @@ Data Engineer.
 Job interview scraping automation/
 ├── README.md                  ← you are here
 ├── .gitignore
-├── .github/workflows/ci.yml   ← Phase 6: lint + test (real Postgres) on every push/PR
+├── .github/workflows/
+│   ├── ci.yml                   ← Phase 6: lint + test (real Postgres) on every push/PR
+│   └── daily_harvest.yml        ← Phase 7: scheduled scrape → score → notify, on a timer
 ├── pyproject.toml             ← Python package + pytest + ruff config
 ├── requirements.txt
 ├── .env.example                ← copy to .env and fill in (never commit .env)
@@ -55,6 +57,7 @@ Job interview scraping automation/
 │   ├── 05-power-bi-data-model.md
 │   ├── 06-dashboard-layout-and-approval-ux.md
 │   ├── 07-continuous-integration.md
+│   ├── 08-going-live-secrets-and-migrations.md
 │   └── git-and-github-basics.md
 ├── sql/                        ← DB migrations, applied in order
 │   ├── 01_schema.sql            ← Phase 1: star schema DDL
@@ -84,7 +87,9 @@ Job interview scraping automation/
 │   ├── run_ingestion.py        ← Phase 2: scrape → load → enrich, wired end-to-end
 │   ├── run_ats_pipeline.py     ← Phase 3: score → tailor → render → save, wired end-to-end
 │   ├── export_ats_schema.py    ← regenerates the JSON Schema artifact
-│   └── manage_outreach.py      ← Phase 4: review queue + funnel-advancing CLI
+│   ├── manage_outreach.py      ← Phase 4: review queue + funnel-advancing CLI
+│   ├── score_unscored_jobs.py  ← Phase 7: batch ATS scoring, per-row error isolation
+│   └── notify.py                ← Phase 7: Telegram digest of today's high-scoring matches
 ├── powerbi/
 │   └── eagent_measures.dax     ← Phase 5: copy-paste DAX (measures, ATS Tier, funnel, Actions URLs)
 └── tests/                      ← unit tests (mocked) + DB-gated integration tests
@@ -103,6 +108,7 @@ Job interview scraping automation/
 | **5** | Power BI data model + DAX (built ahead of Phase 4) | ✅ Done |
 | **5b** | Dashboard layout wireframes + approval-mechanism webhook | ✅ Done |
 | **6** | Continuous Integration (GitHub Actions) | ✅ Done |
+| **7** | Going live: scheduled harvest + alerting | ✅ Code done — infra provisioning is yours |
 
 See [`docs/00-project-roadmap.md`](docs/00-project-roadmap.md) for details.
 
@@ -225,6 +231,26 @@ see Phase 2) actually runs for real on every push/PR. See
 [`docs/07-continuous-integration.md`](docs/07-continuous-integration.md)
 for why that matters and what the linter's own findings surfaced.
 
+### Phase 7 — going live: the scheduled harvest
+
+`.github/workflows/daily_harvest.yml` runs the pipeline unattended, once a
+day (plus a manual `workflow_dispatch` button in the Actions tab). Getting
+it actually running needs infrastructure only you can provision — a real
+Neon Postgres instance, 5 GitHub Secrets, and applying all 4 migrations
+against it once. **The exact checklist is
+[`docs/08-going-live-secrets-and-migrations.md`](docs/08-going-live-secrets-and-migrations.md)
+— read that before enabling the schedule.**
+
+To run the new pieces locally first:
+
+```bash
+python scripts/score_unscored_jobs.py --limit 20   # batch-scores every unscored dim_jobs row
+python scripts/notify.py --threshold 85             # Telegram digest of today's matches (needs .env configured)
+```
+
+Their tests run as part of the same `pytest` command as every other phase —
+no separate invocation needed.
+
 ---
 
 ## 📚 Learning docs
@@ -254,5 +280,10 @@ for why that matters and what the linter's own findings surfaced.
   Phase 6 (why CI is the first time this project's integration tests run
   for real, scoping a linter's rules deliberately instead of accepting
   defaults, and two real findings handled two different correct ways).
+- [Going live: secrets & migrations](docs/08-going-live-secrets-and-migrations.md) —
+  the core of Phase 7 (the exact GitHub Secrets checklist, Neon provisioning,
+  designing for partial failure in a scheduled job, and a real time-based
+  operational gotcha "going live" introduces that no earlier phase had to
+  think about).
 - [Git & GitHub basics](docs/git-and-github-basics.md) — the workflow used to
   build this repo.
