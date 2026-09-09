@@ -50,6 +50,7 @@ Job interview scraping automation/
 │   ├── 03-ats-scoring-and-resume-generation.md
 │   ├── 04-human-in-the-loop-approval-workflow.md
 │   ├── 05-power-bi-data-model.md
+│   ├── 06-dashboard-layout-and-approval-ux.md
 │   └── git-and-github-basics.md
 ├── sql/                        ← DB migrations, applied in order
 │   ├── 01_schema.sql            ← Phase 1: star schema DDL
@@ -65,6 +66,7 @@ Job interview scraping automation/
 │   ├── loader.py                 ← Phase 2: idempotent SQLAlchemy Core upserts
 │   ├── enrichment.py             ← Phase 2: RecruiterEnricher + HunterIOProvider
 │   ├── workflow.py                ← Phase 4: approval state machine + transitions
+│   ├── api.py                     ← Phase 5b: FastAPI webhook backend for the Actions column
 │   ├── scrapers/
 │   │   ├── base.py                ← BaseScraper ABC
 │   │   └── remoteok.py            ← RemoteOKScraper
@@ -80,7 +82,7 @@ Job interview scraping automation/
 │   ├── export_ats_schema.py    ← regenerates the JSON Schema artifact
 │   └── manage_outreach.py      ← Phase 4: review queue + funnel-advancing CLI
 ├── powerbi/
-│   └── eagent_measures.dax     ← Phase 5: copy-paste DAX (measures + ATS Tier)
+│   └── eagent_measures.dax     ← Phase 5: copy-paste DAX (measures, ATS Tier, funnel, Actions URLs)
 └── tests/                      ← unit tests (mocked) + DB-gated integration tests
 ```
 
@@ -95,6 +97,7 @@ Job interview scraping automation/
 | **3** | LLM ATS scoring + resume tailoring | ✅ Done |
 | **4** | Human-in-the-loop approval workflow | ✅ Done |
 | **5** | Power BI data model + DAX (built ahead of Phase 4) | ✅ Done |
+| **5b** | Dashboard layout wireframes + approval-mechanism webhook | ✅ Done |
 
 See [`docs/00-project-roadmap.md`](docs/00-project-roadmap.md) for details.
 
@@ -184,6 +187,24 @@ DATABASE_URL=postgresql+psycopg2://localhost:5432/eagent_test pytest -m integrat
 > Desktop (unavailable in this environment) — see the honesty note at the top
 > of `docs/05-power-bi-data-model.md` before trusting it blindly.
 
+### Phase 5b — dashboard layout + the approval webhook
+
+The wireframes/visual specs in
+[`docs/06-dashboard-layout-and-approval-ux.md`](docs/06-dashboard-layout-and-approval-ux.md)
+are, like Phase 5, authored against the schema and not built in Power BI
+Desktop here. The approval webhook is different — it's real and tested:
+
+```bash
+uvicorn eagent.api:app --reload --port 8000
+```
+
+Then point the Master Matrix's `Approve Action URL` / `Reject Action URL`
+columns (`powerbi/eagent_measures.dax`, Data Category = Web URL) at
+`http://localhost:8000/outreach/{id}/approve-page` / `.../reject-page`.
+
+The webhook's own tests run as part of the same `pytest` / `pytest -m
+integration` commands under Phase 4 above — no separate test command needed.
+
 ---
 
 ## 📚 Learning docs
@@ -204,5 +225,10 @@ DATABASE_URL=postgresql+psycopg2://localhost:5432/eagent_test pytest -m integrat
   Phase 5 (relationship cardinality/direction, `DIVIDE`/`FILTER` patterns,
   calculated column vs. measure, and how Phase 4 closed one of the two
   schema gaps this design surfaced).
+- [Dashboard layout & approval UX](docs/06-dashboard-layout-and-approval-ux.md) —
+  the core of Phase 5b (wireframes for both report pages, Power Query
+  array-unpivoting, why GET must stay side-effect-free, and a real
+  side-by-side of three approval-mechanism architectures with one actually
+  built and tested).
 - [Git & GitHub basics](docs/git-and-github-basics.md) — the workflow used to
   build this repo.

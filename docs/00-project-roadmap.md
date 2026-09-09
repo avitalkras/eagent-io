@@ -80,6 +80,29 @@ self-contained learning module.
   of that schema exists.
 - **Docs:** [`05-power-bi-data-model.md`](05-power-bi-data-model.md)
 
+## Phase 5b — Dashboard Layout & Approval UX ✅
+- **Deliverables:** `docs/06-dashboard-layout-and-approval-ux.md`,
+  `src/eagent/api.py`, extensions to `powerbi/eagent_measures.dax`
+- Full 2-page wireframes and visual specs: Page 1 Operational CRM (KPI
+  banner, Master Matrix with conditional formatting, 4 slicers), Page 2
+  Market & Funnel Analytics (conversion funnel, tech-stack demand, ATS
+  score vs. response-rate scatter, missing-skills ranking) — including
+  Power Query M code to unpivot the `tech_stack`/`missing_skills` Postgres
+  arrays, a real gap Phase 1 predicted (`docs/01` §7).
+- Compared three approval-mechanism architectures (Power Apps visual,
+  linked Google Sheet, local webhook) and **built and tested** the chosen
+  one: a small FastAPI service wrapping Phase 4's `eagent.workflow`
+  functions with zero new business logic — a GET confirmation page (what a
+  plain Power BI hyperlink can call) that triggers the real POST mutation
+  on click, so the Actions column can never approve/reject on a bare
+  navigation or link-prefetch.
+- **Skills:** distinguishing what's testable from what isn't in a stack you
+  can't fully run locally (Power BI Desktop) and building/testing the part
+  that is anyway, REST semantics (GET-must-be-safe) applied to a real UX
+  constraint, Power Query array-unpivoting, scoping a local tool's security
+  boundary explicitly instead of either over-building or ignoring it.
+- **Docs:** [`06-dashboard-layout-and-approval-ux.md`](06-dashboard-layout-and-approval-ux.md)
+
 ---
 
 ## Cross-cutting (learned throughout)
