@@ -1,0 +1,125 @@
+// =============================================================================
+// Eagent.io — Power BI measures (Phase 5)
+// =============================================================================
+// Copy-paste reference. Create each as a New Measure on the `fact_outreach`
+// table (or a dedicated hidden "_Measures" table — see docs/05 for why).
+// Full reasoning, format-string recommendations, and known schema
+// limitations are documented in docs/05-power-bi-data-model.md — read that
+// alongside this file, not instead of it.
+// =============================================================================
+
+Total Postings Scraped =
+COUNTROWS ( dim_jobs )
+
+
+Pending Approvals Count =
+CALCULATE (
+    COUNTROWS ( fact_outreach ),
+    fact_outreach[outreach_status] = "Drafted",
+    fact_outreach[is_approved] = FALSE
+)
+
+
+Approval Rate % =
+VAR ApprovedCount =
+    CALCULATE (
+        COUNTROWS ( fact_outreach ),
+        fact_outreach[is_approved] = TRUE
+    )
+VAR TotalDrafted =
+    COUNTROWS ( fact_outreach )
+RETURN
+    DIVIDE ( ApprovedCount, TotalDrafted, BLANK () )
+
+
+Sent Outreach Count =
+CALCULATE (
+    COUNTROWS ( fact_outreach ),
+    NOT ISBLANK ( fact_outreach[sent_at] )
+)
+
+
+Response Rate % =
+VAR RepliedCount =
+    CALCULATE (
+        COUNTROWS ( fact_outreach ),
+        NOT ISBLANK ( fact_outreach[replied_at] )
+    )
+VAR SentCount =
+    [Sent Outreach Count]
+RETURN
+    DIVIDE ( RepliedCount, SentCount, BLANK () )
+
+
+Interview Rate % =
+// NOTE: relies on outreach_status = "Interview" as a point-in-time snapshot,
+// not a timestamp — see docs/05-power-bi-data-model.md #6 for the schema gap
+// this exposes (no interviewed_at column yet) and the recommended fix.
+VAR InterviewCount =
+    CALCULATE (
+        COUNTROWS ( fact_outreach ),
+        fact_outreach[outreach_status] = "Interview"
+    )
+VAR SentCount =
+    [Sent Outreach Count]
+RETURN
+    DIVIDE ( InterviewCount, SentCount, BLANK () )
+
+
+Average ATS Score =
+AVERAGE ( fact_outreach[ats_score] )
+
+
+Average Days to Reply =
+AVERAGEX (
+    FILTER (
+        fact_outreach,
+        NOT ISBLANK ( fact_outreach[sent_at] )
+            && NOT ISBLANK ( fact_outreach[replied_at] )
+    ),
+    DATEDIFF ( fact_outreach[sent_at], fact_outreach[replied_at], DAY )
+)
+
+
+// -----------------------------------------------------------------------------
+// ATS Tier — CALCULATED COLUMN (primary recommendation; see docs/05 #7)
+// Create this on fact_outreach as a New Column, not a measure.
+// -----------------------------------------------------------------------------
+ATS Tier =
+SWITCH (
+    TRUE (),
+    ISBLANK ( fact_outreach[ats_score] ), BLANK (),
+    fact_outreach[ats_score] < 70, "Low Match",
+    fact_outreach[ats_score] <= 85, "Medium Match",
+    "High Match"
+)
+
+// Optional companion column for correct Low -> Medium -> High sort order in
+// visuals (alphabetical order would otherwise show High, Low, Medium).
+// Set "Sort by Column" on [ATS Tier] to this column after creating both.
+ATS Tier Sort Order =
+SWITCH (
+    TRUE (),
+    ISBLANK ( fact_outreach[ats_score] ), BLANK (),
+    fact_outreach[ats_score] < 70, 1,
+    fact_outreach[ats_score] <= 85, 2,
+    3
+)
+
+
+// -----------------------------------------------------------------------------
+// ATS Tier (Measure) — alternative for KPI cards / aggregated contexts
+// Buckets the CURRENT FILTER CONTEXT's average score, not a single row.
+// Use the calculated column above for slicers/axes; use this only when you
+// need one tier label for a whole visual (e.g. a single KPI card).
+// -----------------------------------------------------------------------------
+ATS Tier (Measure) =
+VAR AvgScore = [Average ATS Score]
+RETURN
+    SWITCH (
+        TRUE (),
+        ISBLANK ( AvgScore ), BLANK (),
+        AvgScore < 70, "Low Match",
+        AvgScore <= 85, "Medium Match",
+        "High Match"
+    )
