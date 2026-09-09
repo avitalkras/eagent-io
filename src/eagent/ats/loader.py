@@ -40,8 +40,20 @@ def today_date_id() -> int:
     populates 2 years forward from whenever it's run. If it doesn't, the
     fact_outreach.date_id foreign key raises a clear Postgres error rather
     than silently accepting a bad value.
+
+    KNOWN LIMITATION (surfaced by Phase 6's linting, deliberately not fixed
+    here): `date.today()` uses the Python process's local timezone, while
+    Postgres's `CURRENT_DATE` (used to populate dim_dates) uses the server's
+    configured timezone. If the app and database run in different
+    timezones, this can compute a date_id one day off from the server's own
+    "today" right around midnight in either zone. The correct fix is a
+    deliberate timezone policy for the whole app (e.g. everything in UTC,
+    or read "today" from Postgres itself via `SELECT CURRENT_DATE` instead
+    of computing it in Python) — a design decision affecting more than this
+    one function, out of scope for "set up CI." Tracked here, not silently
+    ignored.
     """
-    return int(date.today().strftime("%Y%m%d"))
+    return int(date.today().strftime("%Y%m%d"))  # noqa: DTZ011 — see limitation above
 
 
 def upsert_outreach_result(

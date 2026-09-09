@@ -12,11 +12,11 @@ tests/test_enrichment.py in Phase 2):
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import pytest
 
-from eagent.ats.llm import GeminiProvider, GroqProvider, LLMProvider, MAX_TEMPERATURE, analyze_and_tailor
+from eagent.ats.llm import MAX_TEMPERATURE, GeminiProvider, GroqProvider, LLMProvider, analyze_and_tailor
 
 
 class FakeResponse:

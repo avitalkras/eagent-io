@@ -17,6 +17,7 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "httpx>=0.27",
+    "ruff>=0.16",
 ]
 
 [build-system]
@@ -31,3 +32,30 @@ testpaths = ["tests"]
 markers = [
     "integration: requires a real Postgres DATABASE_URL; skipped by default in CI-style runs",
 ]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+# Deliberately does NOT include "UP" (pyupgrade): this codebase consistently
+# uses typing.Dict/List/Optional rather than PEP 585/604 builtin-generic
+# syntax, for readability consistency across every phase and file — a
+# project convention, not a bug pyupgrade should "fix". See
+# docs/07-continuous-integration.md for the full reasoning.
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes (unused imports/vars, undefined names, ...)
+    "I",    # import sorting
+    "B",    # flake8-bugbear (real footgun patterns)
+    "DTZ",  # flake8-datetimez (timezone-naive datetime usage)
+    "EXE",  # flake8-executable (shebang/chmod consistency)
+    "PLW",  # pylint warnings
+    "RUF",  # ruff-specific rules
+]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection pattern IS `Depends(...)` as a default
+# argument value — that's the framework's documented API, not the
+# "mutable default argument" footgun B008 exists to catch. Without this,
+# every route in src/eagent/api.py would (incorrectly) fail lint.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]

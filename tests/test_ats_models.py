@@ -13,7 +13,6 @@ from pydantic import ValidationError
 from eagent.ats.models import (
     ATSAnalysisResult,
     HallucinationError,
-    TailoredBullet,
     TailoredResume,
     validate_no_hallucination,
 )

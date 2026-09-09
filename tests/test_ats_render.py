@@ -99,7 +99,7 @@ def test_render_escapes_typst_special_characters():
 
     # raw markup-significant characters must never appear unescaped in the
     # interpolated summary line
-    summary_line = [l for l in src.splitlines() if "revenue" in l][0]
+    summary_line = next(line for line in src.splitlines() if "revenue" in line)
     assert "\\*2x\\*" in summary_line
     assert "\\#hashtags" in summary_line
     assert "\\$budgets" in summary_line
