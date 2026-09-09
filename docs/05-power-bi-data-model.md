@@ -79,7 +79,7 @@ relationship**, and it's worth understanding why:
 `dim_companies` exclusively as an outrigger off `dim_jobs` for "Company"
 slicing.
 
-### Two known gaps this design work surfaced
+### Known gaps this design work surfaced
 
 Neither blocks building the report today, but both are worth naming
 explicitly rather than discovering silently later:
@@ -93,17 +93,16 @@ explicitly rather than discovering silently later:
    there's no relationship path from `dim_dates` back to `dim_jobs`.
    **Fix (future migration):** add a `posted_date_id INTEGER REFERENCES
    dim_dates(date_id)` column to `dim_jobs`, populated the same way
-   `fact_outreach.date_id` is.
-2. **No `interviewed_at` timestamp.** `fact_outreach` has `drafted_at`,
-   `sent_at`, `replied_at` — but the funnel has an `outreach_status =
-   'Interview'` stage with no matching timestamp. `Interview Rate %` (below)
-   has to fall back to *current status*, which under-counts: if an outreach
-   later moves to `'Rejected'` after an interview, the enum value changes
-   and the interview stage becomes invisible to a status-based filter.
-   **Fix (future migration):** add `interviewed_at TIMESTAMPTZ` to
-   `fact_outreach`, set once when status first reaches `'Interview'`,
-   independent of whatever it becomes afterward — same pattern as
-   `sent_at`/`replied_at` already use.
+   `fact_outreach.date_id` is. **Still open.**
+2. ~~**No `interviewed_at` timestamp.**~~ **Fixed** — Phase 4
+   (`sql/04_interviewed_at_column.sql`) added `interviewed_at TIMESTAMPTZ` to
+   `fact_outreach`, set by `eagent.workflow.mark_interview()` the moment
+   status first reaches `'Interview'`, independent of whatever it becomes
+   afterward — same pattern `sent_at`/`replied_at` already used. `Interview
+   Rate %` below now filters on that column instead of the `outreach_status`
+   snapshot this gap originally forced. Left here, struck through, as a
+   record that the gap was found by this design work and closed by the next
+   phase — not quietly forgotten.
 
 ---
 
@@ -231,7 +230,7 @@ Interview Rate % =
 VAR InterviewCount =
     CALCULATE (
         COUNTROWS ( fact_outreach ),
-        fact_outreach[outreach_status] = "Interview"
+        NOT ISBLANK ( fact_outreach[interviewed_at] )
     )
 VAR SentCount =
     [Sent Outreach Count]
@@ -241,11 +240,16 @@ RETURN
 
 Expressed **as a percentage of Sent** (not of Replied) so every funnel-stage
 measure in the dashboard shares the same denominator and is directly
-comparable at a glance. This is the one measure that has to fall back to
-`outreach_status = "Interview"` instead of a timestamp — see gap #2 in
-§1 above. Until `interviewed_at` exists, treat this measure as a **lower
-bound**: it will under-count outreach that reached interview stage and later
-moved to `'Rejected'`. **Format:** Percentage, 1 decimal, `0.0%`.
+comparable at a glance. Filters on `interviewed_at` — added by Phase 4
+(`sql/04_interviewed_at_column.sql`, set by `eagent.workflow.mark_interview()`)
+— for exactly the same reason `Sent Outreach Count` filters on `sent_at`
+rather than a status label: the timestamp survives the outreach later
+moving on to `'Rejected'`, so this now counts every outreach that *ever*
+reached interview stage, not just the ones still sitting in that status
+today. (Earlier draft of this doc used
+`outreach_status = "Interview"` here and documented it as a known
+under-count — see the struck-through gap #2 in §1. That's what this
+migration fixed.) **Format:** Percentage, 1 decimal, `0.0%`.
 
 ### `Average ATS Score`
 
@@ -361,8 +365,9 @@ applied via **Column tools → Sort by Column** on `ATS Tier`.
 - [ ] Why does `Sent Outreach Count` filter on `sent_at`, not
       `outreach_status = "Sent"`? What's the general rule this implies for
       any "reached at least stage X" measure?
-- [ ] Why does `Interview Rate %` need a caveat that the other rate measures
-      don't?
+- [ ] `Interview Rate %` originally had to filter on `outreach_status`
+      instead of a timestamp, unlike the other rate measures — what closed
+      that gap, and why does the fix live in a migration, not just a DAX change?
 - [ ] What does `DIVIDE(x, y, BLANK())`'s third argument do, and why is
       `BLANK()` usually the right choice over `0`?
 - [ ] When do you reach for `FILTER()` inside `CALCULATE`/`AVERAGEX`, and
@@ -378,8 +383,13 @@ applied via **Column tools → Sort by Column** on `ATS Tier`.
 - `docs/05-power-bi-data-model.md` — this doc
 - `powerbi/eagent_measures.dax` — copy-paste-ready DAX for every measure above
 
-**Next up → Phase 4** (numbered after this in the codebase, built out of
-order): the human-in-the-loop approval workflow that actually sets
-`is_approved` / advances `outreach_status` — the application logic this
-dashboard's `Pending Approvals Count` and `Approval Rate %` measures are
-built to report on.
+**Built out of order, then closed the loop:** this phase was implemented
+before Phase 4's application code existed, against the schema contract
+alone. Phase 4 (the human-in-the-loop approval workflow —
+`src/eagent/workflow.py`) then both *used* this doc's design (its
+`ALLOWED_TRANSITIONS` state machine is what actually sets `is_approved` /
+advances `outreach_status` that `Pending Approvals Count` and `Approval
+Rate %` report on) and *fixed* one of the two gaps this doc originally
+flagged, via `sql/04_interviewed_at_column.sql` — see the struck-through
+gap #2 in §1 and the updated `Interview Rate %` in §3. The
+`dim_jobs`-to-`dim_dates` gap (gap #1) is still open.

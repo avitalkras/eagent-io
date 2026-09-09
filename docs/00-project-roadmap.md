@@ -40,11 +40,25 @@ self-contained learning module.
   migrations, upserts that never clobber a human decision.
 - **Docs:** [`03-ats-scoring-and-resume-generation.md`](03-ats-scoring-and-resume-generation.md)
 
-## Phase 4 — Human-in-the-Loop Approval Workflow ⬜
-- Review queue for Drafted outreach; approve/reject before anything is sent;
-  advance `outreach_status` through the Approved -> Sent -> Replied -> Interview
-  funnel.
-- **Skills:** workflow state machines, approval gates, funnel/velocity metrics.
+## Phase 4 — Human-in-the-Loop Approval Workflow ✅
+- **Deliverables:** `src/eagent/schema.py`, `src/eagent/workflow.py`,
+  `scripts/manage_outreach.py`, `sql/04_interviewed_at_column.sql`
+- Review queue for Drafted-and-unapproved outreach; approve/reject before
+  anything is sent; advance `outreach_status` through the Approved -> Sent ->
+  Replied -> Interview funnel, with Rejected reachable from any non-terminal
+  state. `is_approved` and `outreach_status` are updated atomically so they
+  can never observably disagree.
+- Consolidated three separate, drifting partial `fact_outreach` (and
+  `dim_jobs`/`dim_companies`) SQLAlchemy Core `Table` mappings — one each in
+  Phase 2's and Phase 3's loaders, about to become a third in this phase's
+  `workflow.py` — into one shared `eagent/schema.py`, the single Python-side
+  source of truth for the star schema.
+- **Skills:** state machines as data (one transition table, not
+  hardcoded per-function checks), `SELECT ... FOR UPDATE` row locking for
+  concurrency-safe transitions, defense-in-depth invariant checks
+  (`require_is_approved` in `mark_sent`, independent of the status check),
+  closing a gap a downstream phase (5) surfaced by name.
+- **Docs:** [`04-human-in-the-loop-approval-workflow.md`](04-human-in-the-loop-approval-workflow.md)
 
 ## Phase 5 — Power BI Dashboard ✅ (data model + DAX; built ahead of Phase 4)
 - **Deliverables:** `docs/05-power-bi-data-model.md`, `powerbi/eagent_measures.dax`
@@ -56,8 +70,9 @@ self-contained learning module.
   application code — the funnel measures (`Pending Approvals Count`,
   `Approval Rate %`) are ready to report on `is_approved`/`outreach_status`
   the moment Phase 4 starts writing to them. Two schema gaps surfaced during
-  this design pass (no `dim_jobs -> dim_dates` link, no `interviewed_at`
-  timestamp) are documented for a future migration.
+  this design pass: the missing `interviewed_at` timestamp was closed by
+  Phase 4 (`sql/04_interviewed_at_column.sql`); the missing `dim_jobs ->
+  dim_dates` link is still open for a future migration.
 - **Skills:** star-schema relationships in Power BI (cardinality,
   cross-filter direction), DAX (`DIVIDE`/`BLANK`/`FILTER`/`SWITCH`,
   `VAR`/`RETURN`, measure reuse), calculated column vs. measure trade-offs,

@@ -6,6 +6,16 @@ eagent.loader (Phase 2) — see that module's docstring for why Core over the
 ORM. This file follows on from Migration #3 (sql/03_ats_outreach_columns.sql),
 which added `resume_pdf_path` and the `UNIQUE(job_id)` constraint this
 loader's idempotency depends on.
+
+The `fact_outreach` Table object comes from eagent.schema, the single shared
+mapping of the star schema (see that module's docstring for why). This
+loader deliberately only ever *writes* a subset of its columns — notably
+never `outreach_status` or `is_approved`, both of which are left to their DB
+defaults ('Drafted' / FALSE) on first insert and intentionally untouched on
+every re-run. If a human has already approved or sent an outreach,
+re-scoring the job must refresh its ATS data without silently reverting the
+workflow status back to 'Drafted' — that's a human decision (see
+eagent.workflow, Phase 4), not something a re-score should ever undo.
 """
 from __future__ import annotations
 
@@ -13,35 +23,14 @@ import logging
 from datetime import date
 from typing import List, Optional
 
-from sqlalchemy import ARRAY, BigInteger, Column, DateTime, Integer, MetaData, Numeric, Table, Text, func
+from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Engine
 
 from eagent.ats.models import ATSAnalysisResult
+from eagent.schema import fact_outreach
 
 logger = logging.getLogger(__name__)
-
-metadata = MetaData()
-
-# Mirrors only the columns this loader touches (same convention as
-# eagent.loader.dim_jobs). Notably absent: `outreach_status` and
-# `is_approved` — both are intentionally left to their DB defaults
-# ('Drafted' / FALSE) on first insert, and intentionally NEVER written by
-# this loader on a re-run. If a human has already approved or sent an
-# outreach, re-scoring the job must refresh its ATS data without silently
-# reverting the workflow status back to 'Drafted' — that's a human decision,
-# not something a re-score should undo.
-fact_outreach = Table(
-    "fact_outreach", metadata,
-    Column("outreach_id", BigInteger, primary_key=True),
-    Column("job_id", BigInteger, nullable=False),
-    Column("recruiter_id", BigInteger),
-    Column("date_id", Integer, nullable=False),
-    Column("ats_score", Numeric(5, 2)),
-    Column("missing_skills", ARRAY(Text)),
-    Column("resume_pdf_path", Text),
-    Column("drafted_at", DateTime(timezone=True)),
-)
 
 
 def today_date_id() -> int:

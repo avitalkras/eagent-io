@@ -48,19 +48,23 @@ Job interview scraping automation/
 │   ├── 01-database-modeling-star-schema.md
 │   ├── 02-ingestion-and-enrichment.md
 │   ├── 03-ats-scoring-and-resume-generation.md
+│   ├── 04-human-in-the-loop-approval-workflow.md
 │   ├── 05-power-bi-data-model.md
 │   └── git-and-github-basics.md
 ├── sql/                        ← DB migrations, applied in order
 │   ├── 01_schema.sql            ← Phase 1: star schema DDL
 │   ├── 02_populate_dim_dates.sql
-│   └── 03_ats_outreach_columns.sql   ← Phase 3: resume_pdf_path + UNIQUE(job_id)
+│   ├── 03_ats_outreach_columns.sql   ← Phase 3: resume_pdf_path + UNIQUE(job_id)
+│   └── 04_interviewed_at_column.sql  ← Phase 4: interviewed_at timestamp
 ├── data/
 │   └── master_resume.example.json    ← sample structured resume (fabricated data)
 ├── src/eagent/
-│   ├── models.py                ← Phase 2: Pydantic models (JobPosting, RecruiterContact)
+│   ├── schema.py                 ← shared SQLAlchemy Core Table mappings (single source of truth)
+│   ├── models.py                 ← Phase 2: Pydantic models (JobPosting, RecruiterContact)
 │   ├── config.py                 ← env/DB config loading
 │   ├── loader.py                 ← Phase 2: idempotent SQLAlchemy Core upserts
 │   ├── enrichment.py             ← Phase 2: RecruiterEnricher + HunterIOProvider
+│   ├── workflow.py                ← Phase 4: approval state machine + transitions
 │   ├── scrapers/
 │   │   ├── base.py                ← BaseScraper ABC
 │   │   └── remoteok.py            ← RemoteOKScraper
@@ -73,7 +77,8 @@ Job interview scraping automation/
 ├── scripts/
 │   ├── run_ingestion.py        ← Phase 2: scrape → load → enrich, wired end-to-end
 │   ├── run_ats_pipeline.py     ← Phase 3: score → tailor → render → save, wired end-to-end
-│   └── export_ats_schema.py    ← regenerates the JSON Schema artifact
+│   ├── export_ats_schema.py    ← regenerates the JSON Schema artifact
+│   └── manage_outreach.py      ← Phase 4: review queue + funnel-advancing CLI
 ├── powerbi/
 │   └── eagent_measures.dax     ← Phase 5: copy-paste DAX (measures + ATS Tier)
 └── tests/                      ← unit tests (mocked) + DB-gated integration tests
@@ -88,7 +93,7 @@ Job interview scraping automation/
 | **1** | Database Modeling & Star Schema (DDL) | ✅ Done |
 | **2** | Python scraper + idempotent load + recruiter enrichment | ✅ Done |
 | **3** | LLM ATS scoring + resume tailoring | ✅ Done |
-| 4 | Human-in-the-loop approval workflow | ⬜ Planned |
+| **4** | Human-in-the-loop approval workflow | ✅ Done |
 | **5** | Power BI data model + DAX (built ahead of Phase 4) | ✅ Done |
 
 See [`docs/00-project-roadmap.md`](docs/00-project-roadmap.md) for details.
@@ -136,16 +141,30 @@ python scripts/run_ats_pipeline.py \
     --api-key "$GROQ_API_KEY"
 ```
 
+### Phase 4 — review and approve outreach
+
+```bash
+psql -d eagent -f sql/04_interviewed_at_column.sql   # Migration #4, run once
+
+python scripts/manage_outreach.py review --limit 10   # interactive approve/reject queue
+
+# advance an already-approved outreach through the rest of the funnel:
+python scripts/manage_outreach.py sent 42
+python scripts/manage_outreach.py replied 42
+python scripts/manage_outreach.py interview 42
+```
+
 Run the tests:
 
 ```bash
 pytest                         # unit tests — fast, fully offline (mocked HTTP + real typst compile)
 
-# integration tests — need a real scratch database with all 3 migrations applied:
+# integration tests — need a real scratch database with all 4 migrations applied:
 createdb eagent_test
 psql -d eagent_test -f sql/01_schema.sql
 psql -d eagent_test -f sql/02_populate_dim_dates.sql
 psql -d eagent_test -f sql/03_ats_outreach_columns.sql
+psql -d eagent_test -f sql/04_interviewed_at_column.sql
 DATABASE_URL=postgresql+psycopg2://localhost:5432/eagent_test pytest -m integration
 ```
 
@@ -177,8 +196,13 @@ DATABASE_URL=postgresql+psycopg2://localhost:5432/eagent_test pytest -m integrat
 - [ATS scoring & resume generation](docs/03-ats-scoring-and-resume-generation.md) —
   the core of Phase 3 (anti-hallucination guardrails, structured LLM output,
   the retry-with-feedback pattern, Typst PDF rendering).
+- [Human-in-the-loop approval workflow](docs/04-human-in-the-loop-approval-workflow.md) —
+  the core of Phase 4 (state machines as data, row-level locking for
+  concurrency safety, defense-in-depth invariant checks, closing a gap a
+  downstream phase found).
 - [Power BI data model & DAX](docs/05-power-bi-data-model.md) — the core of
   Phase 5 (relationship cardinality/direction, `DIVIDE`/`FILTER` patterns,
-  calculated column vs. measure, two schema gaps this design surfaced).
+  calculated column vs. measure, and how Phase 4 closed one of the two
+  schema gaps this design surfaced).
 - [Git & GitHub basics](docs/git-and-github-basics.md) — the workflow used to
   build this repo.

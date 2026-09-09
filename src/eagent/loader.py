@@ -11,50 +11,24 @@ WHY SQLAlchemy CORE (not the ORM, not raw psycopg2 strings)?
       `sqlalchemy.dialects.postgresql.insert`, and plain, explicit statements.
       Right-sized tool for this job.
 
-The Table objects below intentionally mirror only the columns this loader
-touches. sql/01_schema.sql (Phase 1) remains the single source of truth for
-the real schema — this file does not create or alter tables.
+Table objects (dim_companies, dim_jobs) come from eagent.schema, the single
+shared mapping of the star schema — see that module's docstring for why.
+sql/01_schema.sql (Phase 1) remains the single source of truth for the real
+schema — this file does not create or alter tables.
 """
 from __future__ import annotations
 
 import logging
 from typing import Dict, Optional, Sequence
 
-from sqlalchemy import ARRAY, BigInteger, Column, DateTime, MetaData, Table, Text, func
+from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Connection, Engine
 
 from eagent.models import JobPosting
+from eagent.schema import dim_companies, dim_jobs
 
 logger = logging.getLogger(__name__)
-
-metadata = MetaData()
-
-dim_companies = Table(
-    "dim_companies", metadata,
-    Column("company_id", BigInteger, primary_key=True),
-    Column("name", Text, nullable=False),
-    Column("domain", Text),
-    Column("industry", Text),
-    Column("location", Text),
-    Column("created_at", DateTime(timezone=True)),
-    Column("updated_at", DateTime(timezone=True)),
-)
-
-dim_jobs = Table(
-    "dim_jobs", metadata,
-    Column("job_id", BigInteger, primary_key=True),
-    Column("company_id", BigInteger, nullable=False),
-    Column("title", Text, nullable=False),
-    Column("external_source", Text, nullable=False),
-    Column("external_id", Text, nullable=False),
-    Column("job_url", Text),
-    Column("location", Text),
-    Column("tech_stack", ARRAY(Text)),
-    Column("raw_description", Text),
-    Column("posted_at", DateTime(timezone=True)),
-    Column("created_at", DateTime(timezone=True)),
-)
 
 
 def get_or_create_company(conn: Connection, name: str, domain: Optional[str]) -> int:
