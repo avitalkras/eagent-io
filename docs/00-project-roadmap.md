@@ -25,11 +25,26 @@ self-contained learning module.
   unit vs. integration testing strategy.
 - **Docs:** [`02-ingestion-and-enrichment.md`](02-ingestion-and-enrichment.md)
 
-## Phase 4 — LLM ATS Scoring & Resume Tailoring ⬜
-- Score resume ↔ JD match, extract `missing_skills`, tailor a resume, render via
-  Typst/LaTeX. Write results into `fact_outreach`.
-- **Skills:** LLM prompting, structured output, the human-in-the-loop approval
-  gate, document generation.
+## Phase 3 — ATS Scoring & Resume Tailoring ✅
+- **Deliverables:** `src/eagent/ats/` (`models.py`, `llm.py`, `render.py`,
+  `loader.py`), `sql/03_ats_outreach_columns.sql`,
+  `scripts/run_ats_pipeline.py`, `data/master_resume.example.json`
+- Scores a structured Master Resume against a job description via an LLM
+  (Groq or Gemini) in strict JSON mode, tailors the resume without
+  fabrication, renders a single-column ATS-safe PDF via Typst, and
+  idempotently writes the result into `fact_outreach`.
+- **Skills:** Pydantic-as-contract for LLM output, JSON Schema export,
+  structured/schema-constrained LLM generation, the generate → validate →
+  retry-with-feedback pattern, deterministic anti-hallucination checks
+  (vs. an LLM judge), PDF generation from structured data, additive schema
+  migrations, upserts that never clobber a human decision.
+- **Docs:** [`03-ats-scoring-and-resume-generation.md`](03-ats-scoring-and-resume-generation.md)
+
+## Phase 4 — Human-in-the-Loop Approval Workflow ⬜
+- Review queue for Drafted outreach; approve/reject before anything is sent;
+  advance `outreach_status` through the Approved -> Sent -> Replied -> Interview
+  funnel.
+- **Skills:** workflow state machines, approval gates, funnel/velocity metrics.
 
 ## Phase 5 — Power BI Dashboard ⬜
 - Connect Power BI to the star schema; build operational + market-intelligence

@@ -1,0 +1,89 @@
+{
+  "$defs": {
+    "TailoredBullet": {
+      "description": "One bullet selected (and lightly reworded) from the Master Resume.\n\n`bullet_id` MUST reference a real MasterResumeBullet \u2014 the LLM is not\nasked to invent facts, only to select, reorder, and rephrase existing\nones. `validate_no_hallucination()` enforces this after the fact.",
+      "properties": {
+        "bullet_id": {
+          "title": "Bullet Id",
+          "type": "string"
+        },
+        "tailored_text": {
+          "minLength": 1,
+          "title": "Tailored Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "bullet_id",
+        "tailored_text"
+      ],
+      "title": "TailoredBullet",
+      "type": "object"
+    },
+    "TailoredResume": {
+      "description": "The tailored presentation layer for one specific job application.",
+      "properties": {
+        "summary": {
+          "description": "Rewritten summary targeting this JD.",
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "prioritized_skills": {
+          "description": "Subset/reordering of the candidate's real skills.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Prioritized Skills",
+          "type": "array"
+        },
+        "bullet_points": {
+          "description": "Selected + re-ranked bullets, most relevant first.",
+          "items": {
+            "$ref": "#/$defs/TailoredBullet"
+          },
+          "title": "Bullet Points",
+          "type": "array"
+        }
+      },
+      "required": [
+        "summary"
+      ],
+      "title": "TailoredResume",
+      "type": "object"
+    }
+  },
+  "description": "The full, validated shape of one LLM call's output. See requirement #1.",
+  "properties": {
+    "ats_score": {
+      "description": "0-100 match between resume and JD.",
+      "maximum": 100,
+      "minimum": 0,
+      "title": "Ats Score",
+      "type": "number"
+    },
+    "matched_keywords": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Matched Keywords",
+      "type": "array"
+    },
+    "missing_hard_skills": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Hard Skills",
+      "type": "array"
+    },
+    "tailored_resume": {
+      "$ref": "#/$defs/TailoredResume"
+    }
+  },
+  "required": [
+    "ats_score",
+    "tailored_resume"
+  ],
+  "title": "ATSAnalysisResult",
+  "type": "object"
+}
