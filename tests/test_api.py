@@ -30,7 +30,7 @@ from eagent.workflow import InvalidTransitionError
 
 @pytest.fixture()
 def client():
-    api.app.dependency_overrides[api.get_db_engine] = lambda: object()
+    api.app.dependency_overrides[api.get_db_engine] = object  # a zero-arg callable, same as lambda: object()
     yield TestClient(api.app)
     api.app.dependency_overrides.clear()
 

@@ -103,10 +103,38 @@ self-contained learning module.
   boundary explicitly instead of either over-building or ignoring it.
 - **Docs:** [`06-dashboard-layout-and-approval-ux.md`](06-dashboard-layout-and-approval-ux.md)
 
+## Phase 6 — Continuous Integration ✅
+- **Deliverables:** `.github/workflows/ci.yml`, `[tool.ruff]` config in
+  `pyproject.toml`
+- Two parallel jobs on every push/PR to `main`: `ruff check .` (a
+  deliberately scoped rule selection — see docs/07 for what's excluded and
+  why), and a full `pytest` run (Python 3.9 + 3.12 matrix) against a real
+  Postgres **service container** with all 4 migrations applied fresh every
+  time. This is the first time in the project's history every
+  `@pytest.mark.integration` test actually runs instead of self-skipping —
+  this dev sandbox has never had a local Postgres to run them against.
+- Zero secrets required anywhere in the workflow — a direct payoff of the
+  dependency-injection pattern established in Phase 2 and used in every
+  phase since (every external HTTP/LLM call is swappable for a fake at the
+  test boundary).
+- Linting surfaced two real findings, each handled differently: a false
+  positive (FastAPI's `Depends()` pattern) got a documented, framework-wide
+  exemption; a real latent bug class (`date.today()`'s local-vs-server
+  timezone mismatch risk in `today_date_id()`) got documented and deferred
+  with an explicit `# noqa` and reasoning, not silently fixed or ignored.
+- **Skills:** service containers for integration testing in CI, scoping a
+  linter's rule selection deliberately instead of accepting tool defaults,
+  distinguishing "found and fixed," "found and exempted with reasoning,"
+  and "found and deliberately deferred" as three different legitimate
+  outcomes of the same lint finding, why running migrations against a real
+  database can be a stronger SQL correctness check than a style linter.
+- **Docs:** [`07-continuous-integration.md`](07-continuous-integration.md)
+
 ---
 
 ## Cross-cutting (learned throughout)
 - **Git & GitHub** — branching, commits, PRs → see
   [`git-and-github-basics.md`](git-and-github-basics.md).
-- **Docker** — containerizing Postgres + the app.
-- **GitHub Actions** — CI: lint SQL/Python, run migrations on a test DB.
+- **Docker** — containerizing Postgres + the app. *(Not yet built.)*
+- ~~**GitHub Actions** — CI: lint SQL/Python, run migrations on a test DB.~~
+  **Done — Phase 6.**

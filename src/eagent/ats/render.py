@@ -160,10 +160,14 @@ def compile_pdf(typst_source: str, output_pdf_path: "str | Path") -> Path:
         source_path = Path(tmp_dir) / "resume.typ"
         source_path.write_text(typst_source, encoding="utf-8")
 
+        # check=False (explicit): we check result.returncode ourselves below to
+        # raise a RuntimeError carrying typst's own stderr, rather than letting
+        # subprocess raise its own less-informative CalledProcessError.
         result = subprocess.run(
             ["typst", "compile", str(source_path), str(output_pdf_path)],
             capture_output=True,
             text=True,
+            check=False,
         )
         if result.returncode != 0:
             raise RuntimeError(f"typst compile failed:\n{result.stderr}")

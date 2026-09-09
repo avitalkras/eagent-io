@@ -1,0 +1,118 @@
+# Eagent.io CI — Phase 6.
+#
+# Two independent jobs, running in parallel (neither `needs` the other) so a
+# lint failure doesn't delay test feedback and vice versa:
+#
+#   lint — ruff against the whole repo (see pyproject.toml [tool.ruff] for
+#          the deliberate rule selection and the FastAPI Depends() exemption).
+#
+#   test — spins up a REAL Postgres service container and runs all 4
+#          migrations against it, then runs `pytest` with DATABASE_URL set.
+#          Every test module gated behind `@pytest.mark.integration` (see
+#          e.g. tests/test_workflow_integration.py) self-skips when
+#          DATABASE_URL is unset — locally, that's every run, since this
+#          project's dev sandbox has no local Postgres. In CI, DATABASE_URL
+#          IS set, so those tests run for real here, not just the ~40 unit
+#          tests that always run everywhere. See
+#          docs/07-continuous-integration.md for the full reasoning.
+#
+# No secrets are required anywhere in this workflow — every external call in
+# the test suite (HTTP, LLM providers) is dependency-injected and mocked at
+# the test layer (Phase 2's http_get pattern, reused throughout). That's a
+# direct payoff of a design decision made three phases ago, not something
+# added for CI.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  # Pinned to the exact version verified locally (see docs/03 and docs/07) —
+  # a newer typst release changing markup behavior shouldn't silently change
+  # what CI considers "passing."
+  TYPST_VERSION: "0.15.1"
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.12"]
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: eagent
+          POSTGRES_PASSWORD: eagent
+          POSTGRES_DB: eagent_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+psycopg2://eagent:eagent@localhost:5432/eagent_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Install typst
+        run: |
+          curl -sL -o /tmp/typst.tar.xz \
+            "https://github.com/typst/typst/releases/download/v${TYPST_VERSION}/typst-x86_64-unknown-linux-musl.tar.xz"
+          tar -xf /tmp/typst.tar.xz -C /tmp
+          sudo mv "/tmp/typst-x86_64-unknown-linux-musl/typst" /usr/local/bin/typst
+          typst --version
+
+      - run: pip install -e ".[dev]"
+
+      - name: Apply migrations
+        run: |
+          PGPASSWORD=eagent psql -h localhost -U eagent -d eagent_test -f sql/01_schema.sql
+          PGPASSWORD=eagent psql -h localhost -U eagent -d eagent_test -f sql/02_populate_dim_dates.sql
+          PGPASSWORD=eagent psql -h localhost -U eagent -d eagent_test -f sql/03_ats_outreach_columns.sql
+          PGPASSWORD=eagent psql -h localhost -U eagent -d eagent_test -f sql/04_interviewed_at_column.sql
+
+      - name: pytest (unit + integration — DATABASE_URL is set)
+        run: pytest -v

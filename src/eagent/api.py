@@ -45,7 +45,8 @@ from eagent.workflow import InvalidTransitionError, approve_outreach, reject_out
 
 app = FastAPI(
     title="Eagent.io Outreach Webhook",
-    description="Local webhook backend for the Power BI Actions column. Wraps eagent.workflow — no business logic here.",
+    description="Local webhook backend for the Power BI Actions column. "
+    "Wraps eagent.workflow — no business logic here.",
 )
 
 

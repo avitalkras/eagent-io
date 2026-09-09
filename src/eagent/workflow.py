@@ -55,7 +55,8 @@ class InvalidTransitionError(Exception):
 ALLOWED_TRANSITIONS: Dict[str, Set[str]] = {
     "Drafted":   {"Approved", "Rejected"},
     "Approved":  {"Sent", "Rejected"},
-    "Sent":      {"Replied", "Interview", "Rejected"},  # "Interview" direct: some recruiters invite without an explicit reply first
+    # "Interview" direct: some recruiters invite without an explicit reply first.
+    "Sent":      {"Replied", "Interview", "Rejected"},
     "Replied":   {"Interview", "Rejected"},
     "Interview": {"Rejected"},
     "Rejected":  set(),

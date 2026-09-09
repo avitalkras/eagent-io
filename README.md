@@ -1,5 +1,7 @@
 # Eagent.io
 
+[![CI](https://github.com/avitalkras/eagent-io/actions/workflows/ci.yml/badge.svg)](https://github.com/avitalkras/eagent-io/actions/workflows/ci.yml)
+
 > An end-to-end **Data Engineering & Analytics** platform that harvests
 > data/analytics job postings, enriches recruiter contacts, scores & tailors
 > resumes for ATS compatibility, runs a human-in-the-loop approval workflow, and
@@ -40,7 +42,8 @@ Data Engineer.
 Job interview scraping automation/
 ├── README.md                  ← you are here
 ├── .gitignore
-├── pyproject.toml             ← Python package + pytest config
+├── .github/workflows/ci.yml   ← Phase 6: lint + test (real Postgres) on every push/PR
+├── pyproject.toml             ← Python package + pytest + ruff config
 ├── requirements.txt
 ├── .env.example                ← copy to .env and fill in (never commit .env)
 ├── docs/                       ← learning notes (the "why" behind everything)
@@ -51,6 +54,7 @@ Job interview scraping automation/
 │   ├── 04-human-in-the-loop-approval-workflow.md
 │   ├── 05-power-bi-data-model.md
 │   ├── 06-dashboard-layout-and-approval-ux.md
+│   ├── 07-continuous-integration.md
 │   └── git-and-github-basics.md
 ├── sql/                        ← DB migrations, applied in order
 │   ├── 01_schema.sql            ← Phase 1: star schema DDL
@@ -98,6 +102,7 @@ Job interview scraping automation/
 | **4** | Human-in-the-loop approval workflow | ✅ Done |
 | **5** | Power BI data model + DAX (built ahead of Phase 4) | ✅ Done |
 | **5b** | Dashboard layout wireframes + approval-mechanism webhook | ✅ Done |
+| **6** | Continuous Integration (GitHub Actions) | ✅ Done |
 
 See [`docs/00-project-roadmap.md`](docs/00-project-roadmap.md) for details.
 
@@ -205,6 +210,21 @@ columns (`powerbi/eagent_measures.dax`, Data Category = Web URL) at
 The webhook's own tests run as part of the same `pytest` / `pytest -m
 integration` commands under Phase 4 above — no separate test command needed.
 
+### Phase 6 — lint locally the same way CI does
+
+```bash
+pip install -e ".[dev]"   # installs ruff (added this phase)
+ruff check .
+```
+
+CI (`.github/workflows/ci.yml`) runs this exact command, plus a full
+`pytest` run against a **real** Postgres service container with all 4
+migrations applied — meaning every `@pytest.mark.integration` test that
+self-skips in this local dev sandbox (no local Postgres available here —
+see Phase 2) actually runs for real on every push/PR. See
+[`docs/07-continuous-integration.md`](docs/07-continuous-integration.md)
+for why that matters and what the linter's own findings surfaced.
+
 ---
 
 ## 📚 Learning docs
@@ -230,5 +250,9 @@ integration` commands under Phase 4 above — no separate test command needed.
   array-unpivoting, why GET must stay side-effect-free, and a real
   side-by-side of three approval-mechanism architectures with one actually
   built and tested).
+- [Continuous integration](docs/07-continuous-integration.md) — the core of
+  Phase 6 (why CI is the first time this project's integration tests run
+  for real, scoping a linter's rules deliberately instead of accepting
+  defaults, and two real findings handled two different correct ways).
 - [Git & GitHub basics](docs/git-and-github-basics.md) — the workflow used to
   build this repo.
