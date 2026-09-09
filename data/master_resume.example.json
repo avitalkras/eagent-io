@@ -1,0 +1,54 @@
+{
+  "full_name": "Jordan Rivera",
+  "email": "jordan.rivera@example.com",
+  "phone": "+1-555-010-1234",
+  "location": "Remote",
+  "linkedin_url": "https://www.linkedin.com/in/jordan-rivera-example",
+  "summary": "Data engineer with 5 years building batch and streaming pipelines on cloud data platforms.",
+  "skills": [
+    "python", "sql", "airflow", "spark", "dbt", "postgresql",
+    "aws", "docker", "kafka", "terraform"
+  ],
+  "experience": [
+    {
+      "company": "Acme Analytics",
+      "title": "Senior Data Engineer",
+      "start_date": "2022-03",
+      "end_date": null,
+      "bullets": [
+        {
+          "bullet_id": "acme-2022-01",
+          "text": "Redesigned the nightly ETL pipeline using Airflow and dbt, cutting runtime from 4 hours to 45 minutes."
+        },
+        {
+          "bullet_id": "acme-2022-02",
+          "text": "Built a streaming ingestion layer on Kafka and Spark Structured Streaming, processing 2M events/day."
+        },
+        {
+          "bullet_id": "acme-2022-03",
+          "text": "Migrated on-prem PostgreSQL warehouse to AWS, reducing infrastructure cost by 30%."
+        }
+      ]
+    },
+    {
+      "company": "Bright Retail Co",
+      "title": "Data Engineer",
+      "start_date": "2019-06",
+      "end_date": "2022-02",
+      "bullets": [
+        {
+          "bullet_id": "bright-2019-01",
+          "text": "Built and maintained Python ETL jobs feeding a Power BI reporting layer used by 50+ analysts."
+        },
+        {
+          "bullet_id": "bright-2019-02",
+          "text": "Containerized the data platform with Docker and set up CI/CD via GitHub Actions."
+        },
+        {
+          "bullet_id": "bright-2019-03",
+          "text": "Wrote Terraform modules to provision staging and production data infrastructure."
+        }
+      ]
+    }
+  ]
+}
