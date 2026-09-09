@@ -20,16 +20,30 @@ CALCULATE (
 )
 
 
-Approval Rate % =
-VAR ApprovedCount =
-    CALCULATE (
-        COUNTROWS ( fact_outreach ),
-        fact_outreach[is_approved] = TRUE
-    )
-VAR TotalDrafted =
-    COUNTROWS ( fact_outreach )
-RETURN
-    DIVIDE ( ApprovedCount, TotalDrafted, BLANK () )
+// -----------------------------------------------------------------------------
+// Funnel-stage COUNT measures. Originally these lived only as private VARs
+// inside the rate measures below (Approval Rate %, Response Rate %,
+// Interview Rate %). Promoted to standalone measures for Page 2's Funnel
+// visual (docs/06-dashboard-layout-and-approval-ux.md §2), which needs a
+// literal count per stage, not just a ratio — the rate measures now call
+// these instead of recomputing the same CALCULATE. Same "reuse, don't
+// duplicate" instinct Response Rate % already applied to Sent Outreach Count.
+// -----------------------------------------------------------------------------
+
+Relevant Postings Count =
+// A "Scraped" posting (dim_jobs row) becomes "Relevant" the moment it's
+// worth ATS-scoring — i.e. the moment a fact_outreach row exists for it
+// (Phase 3's upsert_outreach_result). Deliberately NOT a score threshold
+// (e.g. "ats_score >= 50") — that would invent a cutoff the schema doesn't
+// define. This reads directly off the real pipeline stages instead.
+COUNTROWS ( fact_outreach )
+
+
+Approved Outreach Count =
+CALCULATE (
+    COUNTROWS ( fact_outreach ),
+    fact_outreach[is_approved] = TRUE
+)
 
 
 Sent Outreach Count =
@@ -39,33 +53,39 @@ CALCULATE (
 )
 
 
-Response Rate % =
-VAR RepliedCount =
-    CALCULATE (
-        COUNTROWS ( fact_outreach ),
-        NOT ISBLANK ( fact_outreach[replied_at] )
-    )
-VAR SentCount =
-    [Sent Outreach Count]
-RETURN
-    DIVIDE ( RepliedCount, SentCount, BLANK () )
+Replied Outreach Count =
+CALCULATE (
+    COUNTROWS ( fact_outreach ),
+    NOT ISBLANK ( fact_outreach[replied_at] )
+)
 
 
-Interview Rate % =
+Interview Outreach Count =
 // Filters on interviewed_at (Migration #4, sql/04_interviewed_at_column.sql),
 // not outreach_status = "Interview" — same reasoning as Sent Outreach Count
 // above: a timestamp, once set, survives the outreach later moving on to
 // "Rejected"; a status filter would silently lose it. See
 // docs/05-power-bi-data-model.md #1 for the gap this column closed.
-VAR InterviewCount =
-    CALCULATE (
-        COUNTROWS ( fact_outreach ),
-        NOT ISBLANK ( fact_outreach[interviewed_at] )
-    )
-VAR SentCount =
-    [Sent Outreach Count]
-RETURN
-    DIVIDE ( InterviewCount, SentCount, BLANK () )
+CALCULATE (
+    COUNTROWS ( fact_outreach ),
+    NOT ISBLANK ( fact_outreach[interviewed_at] )
+)
+
+
+// -----------------------------------------------------------------------------
+// Rate measures — now thin DIVIDE wrappers over the count measures above.
+// -----------------------------------------------------------------------------
+
+Approval Rate % =
+DIVIDE ( [Approved Outreach Count], [Relevant Postings Count], BLANK () )
+
+
+Response Rate % =
+DIVIDE ( [Replied Outreach Count], [Sent Outreach Count], BLANK () )
+
+
+Interview Rate % =
+DIVIDE ( [Interview Outreach Count], [Sent Outreach Count], BLANK () )
 
 
 Average ATS Score =
@@ -125,3 +145,85 @@ RETURN
         AvgScore <= 85, "Medium Match",
         "High Match"
     )
+
+
+// =============================================================================
+// Page 2 — Funnel visual (docs/06-dashboard-layout-and-approval-ux.md §2a)
+// =============================================================================
+// The Funnel visual needs ONE (category, value) table — one row per stage —
+// but our 6 numbers come from 6 DIFFERENT measures on fact_outreach/dim_jobs,
+// not one column you can GROUP BY. Standard DAX fix: a small DISCONNECTED
+// table listing the stage names (create via Power Query "Enter Data", not
+// DAX), plus one measure that SWITCHes on whichever stage is in the current
+// row context and returns the matching real measure.
+//
+// Create a table named `Funnel Stages` via Home -> Enter Data with exactly
+// these two columns and six rows:
+//
+//   StageOrder | StageName
+//   1          | Scraped
+//   2          | Relevant
+//   3          | Approved
+//   4          | Sent
+//   5          | Replied
+//   6          | Interview
+//
+// Then set Funnel Stages[StageOrder] as the Sort-by-Column for
+// Funnel Stages[StageName] (Column tools -> Sort by Column) so the funnel
+// renders in pipeline order, not alphabetical.
+// =============================================================================
+
+Funnel Value =
+SWITCH (
+    SELECTEDVALUE ( 'Funnel Stages'[StageName] ),
+    "Scraped",   [Total Postings Scraped],
+    "Relevant",  [Relevant Postings Count],
+    "Approved",  [Approved Outreach Count],
+    "Sent",      [Sent Outreach Count],
+    "Replied",   [Replied Outreach Count],
+    "Interview", [Interview Outreach Count],
+    BLANK ()
+)
+
+
+// =============================================================================
+// Page 2 — ATS Score vs. Response Rate scatter plot (docs/06 §2c)
+// =============================================================================
+// A scatter plot needs one dot per GROUP, not per outreach row — "response
+// rate" isn't defined for a single outreach (it either replied or it
+// didn't; a rate needs a denominator of more than one). [ATS Tier] already
+// buckets every row into Low/Medium/High (3 dots — simplest version, reuses
+// an existing column). This finer column gives 10-point buckets instead
+// (~7-8 dots) for more resolution, if you want it.
+// -----------------------------------------------------------------------------
+ATS Score Bucket =
+// Create on fact_outreach as a New Column.
+IF (
+    ISBLANK ( fact_outreach[ats_score] ),
+    BLANK (),
+    ROUNDDOWN ( fact_outreach[ats_score] / 10, 0 ) * 10
+)
+
+
+// =============================================================================
+// Page 1 — Actions column URLs (docs/06 §1b, §3)
+// =============================================================================
+// Web-URL-categorized calculated columns for the Master Matrix's Actions
+// column. After creating each, set its Data Category to "Web URL"
+// (Column tools -> Data category) so Power BI renders it as a clickable
+// link. IMPORTANT: with a plain Table/Matrix column, the visible link text
+// IS the URL itself — Power BI has no native way to show friendly text
+// ("Approve") with a different href in a Table/Matrix cell. See docs/06 §3
+// for the two ways to handle that (accept the visible URL, or the
+// "HTML Content" custom-visual route for styled buttons).
+//
+// localhost:8000 assumes the FastAPI webhook (src/eagent/api.py) running
+// locally. DAX has no environment-variable equivalent (unlike
+// eagent/config.py's DATABASE_URL) — change this literal per deployment,
+// or see docs/06 §3 for the Power Query Parameter alternative.
+// -----------------------------------------------------------------------------
+Approve Action URL =
+"http://localhost:8000/outreach/" & fact_outreach[outreach_id] & "/approve-page"
+
+Reject Action URL =
+"http://localhost:8000/outreach/" & fact_outreach[outreach_id] & "/reject-page"
