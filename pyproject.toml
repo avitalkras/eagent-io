@@ -1,0 +1,30 @@
+[project]
+name = "eagent"
+version = "0.2.0"
+description = "Eagent.io — job ingestion, enrichment, and ATS-scoring pipeline"
+requires-python = ">=3.9"
+dependencies = [
+    "requests>=2.31",
+    "pydantic[email]>=2.5,<3",
+    "SQLAlchemy>=2.0,<3",
+    "psycopg2-binary>=2.9",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: requires a real Postgres DATABASE_URL; skipped by default in CI-style runs",
+]

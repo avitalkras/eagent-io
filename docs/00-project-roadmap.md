@@ -11,16 +11,19 @@ self-contained learning module.
   keys, idempotency, constraints, indexing, PostgreSQL types.
 - **Docs:** [`01-database-modeling-star-schema.md`](01-database-modeling-star-schema.md)
 
-## Phase 2 — Scraper & Idempotent Load ⬜
-- Scrape job boards in Python; upsert into `dim_companies` / `dim_jobs`.
-- **Skills:** HTTP scraping, rate limiting, `INSERT ... ON CONFLICT` upserts,
-  parameterized SQL, environment/secret management.
-
-## Phase 3 — Recruiter Enrichment ⬜
-- Find recruiter contacts per company; write `dim_recruiters` with a confidence
-  score.
-- **Skills:** working with 3rd-party enrichment APIs, data quality scoring,
-  deduplication.
+## Phase 2 — Ingestion & Recruiter Enrichment ✅
+- **Deliverables:** `src/eagent/` (`models.py`, `scrapers/base.py`,
+  `scrapers/remoteok.py`, `loader.py`, `enrichment.py`, `config.py`),
+  `scripts/run_ingestion.py`, `tests/`
+- Scrapes RemoteOK's public API in Python; idempotently upserts into
+  `dim_companies` / `dim_jobs` via SQLAlchemy Core; finds/guesses a recruiter
+  contact per company via a mockable `RecruiterEnricher`.
+- **Skills:** abstract base classes & the Strategy pattern, dependency
+  injection for testability, Pydantic v2 runtime validation,
+  `INSERT ... ON CONFLICT` upserts (`DO NOTHING` vs. `DO UPDATE ... RETURNING`),
+  transactional batch loads, graceful degradation of flaky 3rd-party APIs,
+  unit vs. integration testing strategy.
+- **Docs:** [`02-ingestion-and-enrichment.md`](02-ingestion-and-enrichment.md)
 
 ## Phase 4 — LLM ATS Scoring & Resume Tailoring ⬜
 - Score resume ↔ JD match, extract `missing_skills`, tailor a resume, render via
